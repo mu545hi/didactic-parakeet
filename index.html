@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My iOS App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- iOS web app settings -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "San Francisco", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f2f2f7;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+      touch-action: pan-y;
+    }
+
+    .container {
+      text-align: center;
+      width: 90%;
+      max-width: 400px;
+    }
+
+    h1 {
+      font-size: 36px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: #000;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+
+    .hint {
+      font-size: 14px;
+      color: #8e8e93;
+    }
+
+    .fade-out {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+
+    .fade-in {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1 id="title">Hello 👋</h1>
+    <div class="hint">Swipe left or right</div>
+  </div>
+
+  <script>
+    const messages = [
+      "Hello 👋",
+      "Hola 👋",
+      "你好 👋"
+    ];
+
+    let index = 0;
+
+    function updateMessage(direction = 1) {
+      const title = document.getElementById("title");
+
+      // animate out
+      title.classList.add("fade-out");
+
+      setTimeout(() => {
+        index = (index + direction + messages.length) % messages.length;
+        title.textContent = messages[index];
+
+        // animate in
+        title.classList.remove("fade-out");
+        title.classList.add("fade-in");
+
+        setTimeout(() => {
+          title.classList.remove("fade-in");
+        }, 200);
+      }, 150);
+    }
+
+    // Swipe detection
+    let startX = 0;
+    let endX = 0;
+
+    document.addEventListener("touchstart", (e) => {
+      startX = e.changedTouches[0].screenX;
+    });
+
+    document.addEventListener("touchend", (e) => {
+      endX = e.changedTouches[0].screenX;
+      handleSwipe();
+    });
+
+    function handleSwipe() {
+      const threshold = 50;
+      const diff = endX - startX;
+
+      if (Math.abs(diff) > threshold) {
+        if (diff > 0) {
+          updateMessage(-1); // swipe right
+        } else {
+          updateMessage(1); // swipe left
+        }
+      }
+    }
+  </script>
+
+</body>
+</html>
