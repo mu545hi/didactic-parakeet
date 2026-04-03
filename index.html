@@ -1,119 +1,128 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>My iOS App</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <!-- iOS web app settings -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sheets App</title>
 
   <style>
     body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "San Francisco", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system;
       background: #f2f2f7;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
-      overflow: hidden;
-      touch-action: pan-y;
-    }
-
-    .container {
+      margin: 0;
       text-align: center;
-      width: 90%;
-      max-width: 400px;
     }
 
-    h1 {
-      font-size: 36px;
-      font-weight: 600;
-      margin-bottom: 20px;
-      color: #000;
-      transition: transform 0.2s ease, opacity 0.2s ease;
-    }
+    h1 { font-size: 32px; }
 
-    .hint {
-      font-size: 14px;
-      color: #8e8e93;
-    }
-
-    .fade-out {
-      opacity: 0;
-      transform: translateX(-20px);
-    }
-
-    .fade-in {
-      opacity: 1;
-      transform: translateX(0);
+    button {
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      background: #007aff;
+      color: white;
+      margin: 10px;
+      font-size: 16px;
     }
   </style>
 </head>
 <body>
 
-  <div class="container">
-    <h1 id="title">Hello 👋</h1>
-    <div class="hint">Swipe left or right</div>
-  </div>
+<div>
+  <h1 id="title">Connect</h1>
+  <button onclick="login()">Connect Google</button>
+  <button onclick="writeToSheet()">Write Current</button>
+</div>
 
-  <script>
-    const messages = [
-      "Hello 👋",
-      "Hola 👋",
-      "你好 👋"
-    ];
+<script>
+const CLIENT_ID = "2867736651-0udg6q711nod551b0u3so9sl7kqe79s7.apps.googleusercontent.com";
+const SHEET_ID = "1cf-gc2MKCild2JgPt2nFXSbpXcGr8g_r68aMDRdQfw4";
+const RANGE = "AppData01!A1:A100";
 
-    let index = 0;
+let accessToken;
+let messages = [];
+let index = 0;
 
-    function updateMessage(direction = 1) {
-      const title = document.getElementById("title");
+// LOGIN
+function login() {
+  const redirect = window.location.origin;
 
-      // animate out
-      title.classList.add("fade-out");
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?` +
+    `client_id=${CLIENT_ID}` +
+    `&redirect_uri=${redirect}` +
+    `&response_type=token` +
+    `&scope=https://www.googleapis.com/auth/spreadsheets`;
 
-      setTimeout(() => {
-        index = (index + direction + messages.length) % messages.length;
-        title.textContent = messages[index];
+  window.location = url;
+}
 
-        // animate in
-        title.classList.remove("fade-out");
-        title.classList.add("fade-in");
+// HANDLE TOKEN
+function handleAuth() {
+  const hash = window.location.hash;
+  if (hash.includes("access_token")) {
+    const params = new URLSearchParams(hash.substring(1));
+    accessToken = params.get("access_token");
+    fetchSheet();
+  }
+}
 
-        setTimeout(() => {
-          title.classList.remove("fade-in");
-        }, 200);
-      }, 150);
+// READ
+async function fetchSheet() {
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RANGE}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` }
     }
+  );
 
-    // Swipe detection
-    let startX = 0;
-    let endX = 0;
+  const data = await res.json();
+  messages = data.values.map(r => r[0]);
+  document.getElementById("title").textContent = messages[0];
+}
 
-    document.addEventListener("touchstart", (e) => {
-      startX = e.changedTouches[0].screenX;
-    });
+// WRITE (example: overwrite A1)
+async function writeToSheet() {
+  const value = messages[index] || "Hello 👋";
 
-    document.addEventListener("touchend", (e) => {
-      endX = e.changedTouches[0].screenX;
-      handleSwipe();
-    });
-
-    function handleSwipe() {
-      const threshold = 50;
-      const diff = endX - startX;
-
-      if (Math.abs(diff) > threshold) {
-        if (diff > 0) {
-          updateMessage(-1); // swipe right
-        } else {
-          updateMessage(1); // swipe left
-        }
-      }
+  await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Sheet1!A1?valueInputOption=RAW`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        range: "Sheet1!A1",
+        values: [[value]]
+      })
     }
-  </script>
+  );
+
+  alert("Wrote to sheet!");
+}
+
+// SWIPE
+let startX = 0;
+
+document.addEventListener("touchstart", e => {
+  startX = e.changedTouches[0].screenX;
+});
+
+document.addEventListener("touchend", e => {
+  const diff = e.changedTouches[0].screenX - startX;
+
+  if (Math.abs(diff) > 50 && messages.length) {
+    index = (index + (diff < 0 ? 1 : -1) + messages.length) % messages.length;
+    document.getElementById("title").textContent = messages[index];
+  }
+});
+
+handleAuth();
+</script>
 
 </body>
 </html>
