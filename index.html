@@ -302,26 +302,19 @@
       text-align: center;
     }
 
-    /* undo toast */
-    #undo-toast {
-      position: fixed;
-      bottom: 40px;
-      left: 50%;
-      transform: translateX(-50%) translateY(80px);
+    /* undo button */
+    #undo-btn {
+      margin-top: 10px;
+      padding: 10px 28px;
+      border-radius: 12px;
+      border: none;
       background: #1c1c1e;
       color: white;
-      padding: 12px 20px;
-      border-radius: 12px;
-      font-size: 14px;
-      transition: transform 0.3s ease, opacity 0.3s ease;
-      opacity: 0;
-      pointer-events: none;
-      white-space: nowrap;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
     }
-    #undo-toast.show {
-      transform: translateX(-50%) translateY(0);
-      opacity: 1;
-    }
+    #undo-btn:active { opacity: 0.7; }
 
     #loading { color: #8e8e93; font-size: 16px; }
   </style>
@@ -346,11 +339,10 @@
   <div id="empty-msg" style="display:none">All done! 🎉</div>
   <div id="hint">
     &#8592; Defer &nbsp;|&nbsp; &#8594; Complete &nbsp;|&nbsp; &#8593;&#8595; Switch pile<br>
-    Tap to flip &nbsp;|&nbsp; Shake / Ctrl+Z to undo
+    Tap to flip &nbsp;|&nbsp; Ctrl+Z to undo
   </div>
+  <button id="undo-btn" onclick="undo()" style="display:none">↩ Undo</button>
 </div>
-
-<div id="undo-toast">↩ Undone</div>
 
 <script>
 const CLIENT_ID = "849477607564-p3jib8rsfvlv2fgsif1avafrjo4qac5k.apps.googleusercontent.com";
@@ -748,13 +740,10 @@ async function doComplete(el, card, pileIdx) {
 
 // ── Undo ──────────────────────────────────────────────────────────────────
 
-let undoTimer = null;
+let undoTimer = null; // kept for compatibility
 
 function showUndo() {
-  const toast = document.getElementById("undo-toast");
-  toast.classList.add("show");
-  clearTimeout(undoTimer);
-  undoTimer = setTimeout(() => toast.classList.remove("show"), 3000);
+  document.getElementById("undo-btn").style.display = "";
 }
 
 async function undo() {
@@ -765,7 +754,7 @@ async function undo() {
   if (last.action === "complete") piles[last.pileIdx].done--;
   activePile = last.pileIdx;
   renderPiles();
-  document.getElementById("undo-toast").classList.remove("show");
+  if (dismissed.length === 0) document.getElementById("undo-btn").style.display = "none";
   if (last.action === "complete") {
     await markComplete(last.card.dataIndex, last.previousLastDone);
   }
@@ -802,23 +791,6 @@ document.addEventListener("keydown", e => {
       switchPile(dy < 0 ? -1 : 1);
     }
   }, { passive: true });
-})();
-
-// Shake detection
-(function() {
-  let lastX, lastY, lastZ, lastShake = 0;
-  window.addEventListener("devicemotion", e => {
-    const a = e.accelerationIncludingGravity;
-    if (!a) return;
-    const { x, y, z } = a;
-    if (lastX === undefined) { lastX = x; lastY = y; lastZ = z; return; }
-    const delta = Math.abs(x - lastX) + Math.abs(y - lastY) + Math.abs(z - lastZ);
-    if (delta > 25 && Date.now() - lastShake > 1000) {
-      lastShake = Date.now();
-      undo();
-    }
-    lastX = x; lastY = y; lastZ = z;
-  });
 })();
 
 // ── Boot ──────────────────────────────────────────────────────────────────
