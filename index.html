@@ -2,7 +2,9 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>Tody</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -16,6 +18,9 @@
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      overscroll-behavior: none;
+      position: fixed;
+      width: 100%;
     }
 
     /* ── Home screen ── */
@@ -178,6 +183,7 @@
       z-index: 2;
       perspective: 1000px;
       cursor: pointer;
+      touch-action: none;
     }
 
     .card-inner {
@@ -657,6 +663,10 @@ function attachSwipe(el, card, pileIdx) {
     startX = e.changedTouches[0].clientX;
     startY = e.changedTouches[0].clientY;
   }, { passive: true });
+
+  el.addEventListener("touchmove", e => {
+    e.preventDefault();
+  }, { passive: false });
 
   el.addEventListener("touchend", e => {
     const dx = e.changedTouches[0].clientX - startX;
