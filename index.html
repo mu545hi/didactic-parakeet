@@ -111,11 +111,11 @@
 
     /* expanded active pile */
     .pile-row.active .pile-stack {
-      height: 200px;
+      height: 400px;
       border-radius: 16px;
     }
 
-    /* shadow cards only on active */
+    /* shadow cards only on active — positioned relative to stack */
     .pile-row.active .pile-stack::before,
     .pile-row.active .pile-stack::after {
       content: '';
@@ -124,6 +124,7 @@
       height: 100%;
       border-radius: 16px;
       background: #d1d1d6;
+      pointer-events: none;
     }
     .pile-row.active .pile-stack::before { top: 8px; left: 5px; z-index: 0; transform: rotate(2deg); }
     .pile-row.active .pile-stack::after  { top: 5px; left: 3px; z-index: 1; transform: rotate(1deg); }
@@ -226,8 +227,10 @@
       font-size: 14px;
       opacity: 0.75;
     }
+
     .card-back {
       position: absolute;
+      top: 0; left: 0;
       width: 100%;
       height: 100%;
       border-radius: 20px;
@@ -242,7 +245,7 @@
       background: #1c1c1e;
       color: white;
       transform: rotateY(180deg);
-      overflow: hidden;
+      overflow-y: auto;
     }
 
     .detail-pair {
@@ -674,8 +677,6 @@ function attachSwipe(el, card, pileIdx) {
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
       if (piles[pileIdx].showHidden) cycleHidden(pileIdx, dx < 0 ? 1 : -1);
       else dx < 0 ? doDefer(el, card, pileIdx) : doComplete(el, card, pileIdx);
-    } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 60) {
-      switchPile(dy < 0 ? -1 : 1);
     }
   });
 
@@ -786,6 +787,22 @@ document.addEventListener("keydown", e => {
     else { const c = piles[activePile]?.cards[0]; if (c) doComplete(currentCard, c, activePile); }
   }
 });
+
+// Page-level up/down swipe to switch piles
+(function() {
+  let pageStartX = 0, pageStartY = 0;
+  document.addEventListener("touchstart", e => {
+    pageStartX = e.changedTouches[0].clientX;
+    pageStartY = e.changedTouches[0].clientY;
+  }, { passive: true });
+  document.addEventListener("touchend", e => {
+    const dx = e.changedTouches[0].clientX - pageStartX;
+    const dy = e.changedTouches[0].clientY - pageStartY;
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 60) {
+      switchPile(dy < 0 ? -1 : 1);
+    }
+  }, { passive: true });
+})();
 
 // Shake detection
 (function() {
