@@ -576,8 +576,8 @@ function renderDrill() {
       } else {
         const inp = document.createElement("input");
         inp.type = "text"; inp.className = "pinyin-input seg-input drill-input";
-        inp.placeholder = "…"; inp.autocomplete = "off"; inp.spellcheck = false;
-        inp.setAttribute("autocorrect", "off"); inp.setAttribute("autocapitalize", "none");
+        inp.placeholder = "…"; inp.autocomplete = "new-password"; inp.spellcheck = false;
+        inp.setAttribute("autocorrect", "off"); inp.setAttribute("autocapitalize", "off");
         inp.dataset.segIdx = segIdx++;
         inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); submitAnswer(); } });
         inputArea.appendChild(inp);
@@ -587,8 +587,8 @@ function renderDrill() {
     const inp = document.createElement("input");
     inp.type = "text"; inp.className = "pinyin-input drill-input";
     inp.placeholder = "type pinyin syllables separated by spaces…";
-    inp.autocomplete = "off"; inp.spellcheck = false;
-    inp.setAttribute("autocorrect", "off"); inp.setAttribute("autocapitalize", "none");
+    inp.autocomplete = "new-password"; inp.spellcheck = false;
+    inp.setAttribute("autocorrect", "off"); inp.setAttribute("autocapitalize", "off");
     inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); submitAnswer(); } });
     inputArea.appendChild(inp);
   }
