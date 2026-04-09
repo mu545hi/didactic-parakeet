@@ -326,6 +326,7 @@
   <h1>📋 My Apps</h1>
   <button class="btn" onclick="connectGoogle()">Connect</button>
   <button class="btn secondary" id="tody-btn" onclick="openTody()" style="display:none">Tody</button>
+  <button class="btn" id="langacq-btn" onclick="openLangAcq()" style="display:none;background:#5856d6">LangAcqT</button>
 </div>
 
 <!-- Tody view -->
@@ -403,7 +404,13 @@ function handleAuth() {
     accessToken = params.get("access_token");
     window.location.hash = "";
     document.getElementById("tody-btn").style.display = "";
+    document.getElementById("langacq-btn").style.display = "";
   }
+}
+
+function openLangAcq() {
+  // Pass the token to the lang-acq app via the hash, same format Google uses
+  window.location = `lang-acq/index.html#access_token=${encodeURIComponent(accessToken)}&token_type=Bearer`;
 }
 
 // ── Date helpers ──────────────────────────────────────────────────────────

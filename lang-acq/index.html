@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>語言練習</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: sans-serif; background: #111; color: #eee;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 1.5rem; gap: 1rem; min-height: 100vh;
+    }
+    button {
+      padding: 0.4rem 0.9rem; cursor: pointer;
+      background: #333; color: #eee; border: 1px solid #555; border-radius: 4px;
+    }
+    button:hover { background: #555; }
+    button.primary { background: #1a6b3a; border-color: #2a9b5a; }
+    button.danger  { background: #6b1a1a; border-color: #9b2a2a; }
+    input[type=text], input[type=number] {
+      background: #222; color: #eee; border: 1px solid #555;
+      border-radius: 4px; padding: 0.3rem 0.6rem;
+    }
+    input[type=text]:focus, input[type=number]:focus { outline: none; border-color: #7ecf9e; }
+
+    /* ── Auth screen ── */
+    #auth-screen {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 1rem; margin-top: 4rem;
+    }
+    #auth-screen h1 { font-size: 1.6rem; }
+    #auth-screen p  { color: #888; font-size: 0.9rem; text-align: center; max-width: 360px; }
+
+    /* ── Loading ── */
+    #loading { color: #888; margin-top: 3rem; }
+
+    /* ── Drill screen ── */
+    #drill-screen { display: none; flex-direction: column; align-items: center; gap: 1rem; width: 100%; max-width: 760px; }
+
+    #player-wrap { width: 100%; }
+    iframe#yt-player { width: 100%; aspect-ratio: 16/9; border: none; border-radius: 6px; }
+
+    .controls { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
+
+    .context {
+      font-size: 1.4rem; line-height: 2; text-align: center;
+      background: #1a1a1a; border-radius: 8px; padding: 1rem 1.5rem; width: 100%;
+    }
+    .blank { display: inline-block; border-bottom: 2px solid #aaa; min-width: 5rem; color: #888; vertical-align: middle; margin: 0 0.2rem; }
+    .target-revealed { color: #7ecf9e; font-weight: bold; }
+
+    .segment-inputs {
+      display: flex; flex-wrap: wrap; align-items: center;
+      gap: 0.5rem; justify-content: center; width: 100%; max-width: 600px;
+    }
+    .seg-literal { font-size: 1.1rem; color: #f0a040; font-weight: bold; padding: 0.3rem 0.2rem; }
+    .pinyin-input {
+      width: 100%; max-width: 500px; padding: 0.6rem 1rem;
+      font-size: 1.1rem; border-radius: 6px; text-align: center;
+    }
+    .seg-input { flex: 1; min-width: 120px; max-width: 280px; }
+
+    .result { width: 100%; background: #1a1a1a; border-radius: 8px; padding: 1rem 1.5rem; text-align: center; }
+    .score { font-size: 1.2rem; margin-bottom: 0.5rem; }
+    .score.perfect { color: #7ecf9e; }
+    .score.partial  { color: #f0c040; }
+    .score.wrong    { color: #e06060; }
+    .tokens { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; margin-top: 0.5rem; }
+    .token { padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.95rem; }
+    .token.match   { background: #1a4a2a; color: #7ecf9e; }
+    .token.wrong   { background: #4a1a1a; color: #e06060; }
+    .token.missing { background: #2a2a2a; color: #888; font-style: italic; }
+    .token.extra   { background: #3a2a1a; color: #f0a040; }
+
+    .attempt-history { font-size: 0.8rem; color: #666; text-align: center; }
+
+    details summary { list-style: none; outline: none; cursor: pointer; color: #666; font-size: 0.9rem; text-align: center; }
+    details > div   { margin-top: 0.5rem; color: #888; font-size: 0.85rem; text-align: center; }
+
+    hr { border: none; border-top: 1px solid #333; width: 100%; }
+
+    .stats { font-size: 0.8rem; color: #555; display: flex; gap: 1.5rem; justify-content: center; }
+    .deeplink { font-size: 0.75rem; color: #444; text-align: center; }
+    .deeplink a { color: #555; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<!-- Auth screen -->
+<div id="auth-screen">
+  <h1>語言練習</h1>
+  <p>Sign in with the Google account that has access to the LangAcqT sheet.</p>
+  <button class="primary" onclick="connectGoogle()">Connect with Google</button>
+  <a href="../index.html" style="color:#555;font-size:0.85rem;margin-top:0.5rem">← Back to apps</a>
+</div>
+
+<!-- Loading -->
+<div id="loading" style="display:none">Loading sheet data…</div>
+
+<!-- Drill screen -->
+<div id="drill-screen">
+
+  <div id="player-wrap">
+    <div id="yt-player"></div>
+  </div>
+
+  <!-- Video controls -->
+  <div class="controls">
+    <button onclick="ytCmd('playVideo')">▶ Play</button>
+    <button onclick="ytCmd('pauseVideo')">⏸ Pause</button>
+    <span style="display:flex;gap:0.3rem;align-items:center;">
+      <small style="color:#888">Speed:</small>
+      <button onclick="setSpeed(0.5)">0.5×</button>
+      <button onclick="setSpeed(0.75)">0.75×</button>
+      <button onclick="setSpeed(1)">1×</button>
+    </span>
+  </div>
+
+  <!-- Loop controls -->
+  <div class="controls">
+    <small style="color:#888;align-self:center;">Loop start</small>
+    <input type="number" id="loopStart" value="0" min="0" step="0.5" style="width:65px"> s
+    <small style="color:#888;align-self:center;">dur</small>
+    <input type="number" id="loopDuration" value="50" min="1" step="0.5" style="width:65px"> s
+    <button onclick="startLoop()">⟳ Loop</button>
+    <button onclick="stopLoop()">✕</button>
+    <button onclick="saveTimestamps()" style="background:#1a3a6b;border-color:#2a5a9b;" title="Save to sheet">💾 Save</button>
+    <span id="save-ok" style="color:#7ecf9e;font-size:0.85rem;display:none">✓ saved</span>
+  </div>
+
+  <hr>
+
+  <!-- Context -->
+  <div class="context" id="context-display"></div>
+
+  <!-- Hint -->
+  <details id="hint-details" style="width:100%;max-width:600px;">
+    <summary>💡 hint</summary>
+    <div id="hint-content"></div>
+  </details>
+
+  <!-- Result -->
+  <div class="result" id="result-box" style="display:none">
+    <div class="score" id="score-line"></div>
+    <div class="tokens" id="token-row"></div>
+  </div>
+
+  <!-- Attempt history -->
+  <div class="attempt-history" id="attempt-history" style="display:none"></div>
+
+  <!-- Input -->
+  <div class="segment-inputs" id="input-area"></div>
+
+  <!-- Buttons -->
+  <div class="controls">
+    <button class="primary" onclick="submitAnswer()">Submit ↵</button>
+    <button onclick="retrySame()">↺ Retry</button>
+    <button onclick="nextPhrase()">→ Next phrase</button>
+    <button onclick="nextSentence()">⏭ Next sentence</button>
+    <button onclick="randomDrill()">🎲 Random</button>
+    <button onclick="resetSession()">⟳ Reset</button>
+  </div>
+
+  <hr>
+
+  <!-- Stats + deeplink -->
+  <div class="stats" id="stats-bar"></div>
+  <div class="deeplink" id="deeplink"></div>
+
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Config
+// ─────────────────────────────────────────────────────────────────────────────
+const CLIENT_ID  = "849477607564-p3jib8rsfvlv2fgsif1avafrjo4qac5k.apps.googleusercontent.com";
+const SHEET_ID   = "1JuWrIRP1aLT-clyunBYi4JXGoApalDRt5SrQRXSYywg";
+const SHEET_RANGE = "LangAcqT";
+const SCOPES     = "https://www.googleapis.com/auth/spreadsheets";
+
+// Column indices (0-based) matching sheets.py COLUMNS order
+const COL = {
+  id: 0, zh_traditional: 1, zh_simplified: 2, source_script: 3,
+  pinyin: 4, en_translation: 5, en_literal: 6,
+  ai_audio_clip: 7, original_clip: 8, origin: 9,
+  confidence: 10, notes: 11, phrase_timestamps: 12, tts_text: 13
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auth (OAuth2 implicit flow)
+// ─────────────────────────────────────────────────────────────────────────────
+let accessToken = null;
+
+function connectGoogle() {
+  const redirect = window.location.origin + window.location.pathname;
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    redirect_uri: redirect,
+    response_type: "token",
+    scope: SCOPES,
+  });
+  window.location = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+}
+
+function handleAuth() {
+  const hash = window.location.hash;
+  if (hash.includes("access_token")) {
+    const p = new URLSearchParams(hash.substring(1));
+    accessToken = p.get("access_token");
+    window.location.hash = "";
+    return true;
+  }
+  return false;
+}
+</script>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Sheets API
+// ─────────────────────────────────────────────────────────────────────────────
+async function fetchSheet() {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_RANGE}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const data = await res.json();
+  return data.values || [];
+}
+
+async function writeCell(rowIndex, colIndex, value) {
+  // rowIndex is 1-based sheet row (row 1 = header, row 2 = first data row)
+  const col = String.fromCharCode(65 + colIndex);
+  const range = `${SHEET_RANGE}!${col}${rowIndex}`;
+  await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
+    {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ range, values: [[value]] }),
+    }
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phrase splitting (mirrors app.py logic)
+// ─────────────────────────────────────────────────────────────────────────────
+const SPLIT_RE  = /([，。？！；])/u;
+const ZH_RUN_RE = /([\u4e00-\u9fff]+|[^\u4e00-\u9fff]+)/gu;
+
+function isZh(ch) { return ch >= '\u4e00' && ch <= '\u9fff'; }
+
+function isSyllable(tok) {
+  if (!tok || !/[a-zA-Z]/.test(tok[0])) return false;
+  if (tok === tok.toUpperCase()) return false; // all-caps = acronym
+  return true;
+}
+
+function stripTone(s) {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function splitPhrases(zh, pinyin) {
+  const parts = zh.split(SPLIT_RE);
+  const phrases = [];
+  for (let i = 0; i < parts.length; i += 2) {
+    const text = parts[i].trim();
+    const punct = parts[i + 1] || "";
+    if (text) phrases.push({ zh: text, punct, hasNonChinese: /[A-Za-z]/.test(text) });
+  }
+
+  const pyTokens = pinyin.split(/\s+/);
+  let ti = 0;
+
+  for (const phrase of phrases) {
+    const syllables = [];
+    for (const ch of phrase.zh) {
+      if (isZh(ch)) {
+        while (ti < pyTokens.length && !isSyllable(pyTokens[ti])) ti++;
+        if (ti < pyTokens.length) { syllables.push(stripTone(pyTokens[ti])); ti++; }
+      }
+    }
+    phrase.syllables = syllables;
+    phrase.segments  = buildSegments(phrase.zh, syllables);
+    if (phrase.punct && ti < pyTokens.length) ti++;
+  }
+
+  return phrases.filter(p => p.syllables.length > 0);
+}
+
+function buildSegments(zh, syllables) {
+  const runs = [...zh.matchAll(ZH_RUN_RE)].map(m => m[0]).filter(r => r.trim());
+  const segs = [];
+  let si = 0;
+  for (const run of runs) {
+    if (isZh(run[0])) {
+      const n = [...run].filter(isZh).length;
+      segs.push({ type: "zh", text: run, syllables: syllables.slice(si, si + n) });
+      si += n;
+    } else {
+      segs.push({ type: "literal", text: run.trim(), syllables: [] });
+    }
+  }
+  return segs.filter(s => s.text);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Data loading
+// ─────────────────────────────────────────────────────────────────────────────
+let drillPool  = [];   // [{key, recordId, sheetRow, phraseIdx, phrase, contextBefore, contextAfter, videoId, loopStart, loopDuration}]
+let poolIndex  = {};   // key → item
+let sheetRows  = [];   // raw row arrays (for writing back)
+
+async function loadData() {
+  show("loading");
+  const rows = await fetchSheet();
+  sheetRows = rows;
+  // rows[0] = header, rows[1..] = data
+  drillPool = [];
+  poolIndex = {};
+
+  for (let ri = 1; ri < rows.length; ri++) {
+    const row = rows[ri];
+    const id          = row[COL.id]            || "";
+    const zhTrad      = row[COL.zh_traditional] || "";
+    const pinyin      = row[COL.pinyin]         || "";
+    const aiClip      = row[COL.ai_audio_clip]  || "";
+    const enTrans     = row[COL.en_translation] || "";
+    const tsRaw       = row[COL.phrase_timestamps] || "";
+
+    if (!zhTrad || !pinyin || !aiClip) continue;
+
+    let storedTs = {};
+    try { storedTs = tsRaw ? JSON.parse(tsRaw) : {}; } catch(e) {}
+
+    const videoId = extractVideoId(aiClip);
+    const phrases = splitPhrases(zhTrad, pinyin);
+
+    for (let pi = 0; pi < phrases.length; pi++) {
+      const phrase = phrases[pi];
+      if (!phrase.syllables.length) continue;
+      const before = phrases.slice(0, pi).map(p => p.zh + p.punct).join("");
+      const after  = phrases.slice(pi + 1).map(p => p.zh + p.punct).join("");
+      const ts     = storedTs[String(pi)] || {};
+      const key    = `${id}:${pi}`;
+      const item   = {
+        key, recordId: id, sheetRow: ri + 1, phraseIdx: pi,
+        phrase, contextBefore: before, contextAfter: after,
+        videoId, enTranslation: enTrans,
+        loopStart:    parseFloat(ts.start    ?? 0),
+        loopDuration: parseFloat(ts.duration ?? 50),
+      };
+      drillPool.push(item);
+      poolIndex[key] = item;
+    }
+  }
+
+  initPool();
+  show("drill-screen");
+  loadFromHash() || randomDrill();
+}
+
+function extractVideoId(url) {
+  const m = url.match(/[?&]v=([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : url.trim();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Session pool (localStorage)
+// ─────────────────────────────────────────────────────────────────────────────
+const LS_POOL = "drill_pool";
+
+function allKeys()          { return drillPool.map(i => i.key); }
+function sentenceKeys(rid)  { return drillPool.filter(i => i.recordId === rid).map(i => i.key); }
+
+function initPool() {
+  let pool = JSON.parse(localStorage.getItem(LS_POOL) || "null");
+  // Validate — remove keys that no longer exist
+  if (pool) pool = pool.filter(k => poolIndex[k]);
+  if (!pool || pool.length === 0) {
+    pool = shuffle(allKeys());
+  }
+  savePool(pool);
+}
+
+function getPool()       { return JSON.parse(localStorage.getItem(LS_POOL) || "[]"); }
+function savePool(pool)  { localStorage.setItem(LS_POOL, JSON.stringify(pool)); }
+
+function popKey(key) {
+  const pool = getPool().filter(k => k !== key);
+  savePool(pool);
+}
+
+function pickFromPool(keys) {
+  const poolSet = new Set(getPool());
+  const avail   = keys.filter(k => poolSet.has(k));
+  return avail.length ? poolIndex[avail[Math.floor(Math.random() * avail.length)]] : null;
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function poolStats() {
+  const pool = getPool();
+  const rid  = state.item?.recordId;
+  return {
+    inSentence: rid ? pool.filter(k => k.startsWith(rid + ":")).length : 0,
+    sentences:  new Set(pool.map(k => k.split(":")[0])).size,
+    total:      pool.length,
+    grandTotal: drillPool.length,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Drill state
+// ─────────────────────────────────────────────────────────────────────────────
+const state = { item: null, attempts: [] };
+
+function setItem(item) {
+  state.item     = item;
+  state.attempts = [];
+  document.getElementById("loopStart").value    = item.loopStart;
+  document.getElementById("loopDuration").value = item.loopDuration;
+  document.getElementById("save-ok").style.display = "none";
+  loadYT(item.videoId);
+  renderDrill();
+  updateStats();
+  updateHash();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Navigation
+// ─────────────────────────────────────────────────────────────────────────────
+function randomDrill() {
+  const cur = state.item?.key;
+  popKey(cur);
+  let pool = getPool();
+  if (!pool.length) { savePool(shuffle(allKeys())); pool = getPool(); }
+  const key  = pool[Math.floor(Math.random() * pool.length)];
+  setItem(poolIndex[key]);
+}
+
+function nextPhrase() {
+  const rid = state.item?.recordId;
+  const cur = state.item?.key;
+  popKey(cur);
+  const skeys = sentenceKeys(rid);
+  let item = pickFromPool(skeys);
+  if (!item) {
+    // refill sentence
+    const pool = getPool();
+    savePool([...pool, ...skeys]);
+    item = pickFromPool(skeys);
+  }
+  setItem(item || drillPool[Math.floor(Math.random() * drillPool.length)]);
+}
+
+function nextSentence() {
+  const rid   = state.item?.recordId;
+  const skeys = new Set(sentenceKeys(rid));
+  let pool    = getPool().filter(k => !skeys.has(k));
+  if (!pool.length) { pool = shuffle(allKeys()); }
+  savePool(pool);
+  const key  = pool[Math.floor(Math.random() * pool.length)];
+  setItem(poolIndex[key]);
+}
+
+function retrySame() {
+  state.attempts = [];
+  renderDrill();
+}
+
+function resetSession() {
+  savePool(shuffle(allKeys()));
+  randomDrill();
+}
+
+function loadFromHash() {
+  const params = new URLSearchParams(window.location.search);
+  const s = params.get("s"), p = params.get("p");
+  if (!s) return false;
+  const key = p !== null ? `${s}:${p}` : null;
+  const item = key ? poolIndex[key] : drillPool.find(i => i.recordId === s);
+  if (item) { setItem(item); return true; }
+  return false;
+}
+
+function updateHash() {
+  if (!state.item) return;
+  const url = new URL(window.location);
+  url.searchParams.set("s", state.item.recordId);
+  url.searchParams.set("p", state.item.phraseIdx);
+  window.history.replaceState({}, "", url);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scoring
+// ─────────────────────────────────────────────────────────────────────────────
+function scoreAnswer(expected, userInput) {
+  const userSyls = userInput.trim().split(/\s+/).filter(Boolean).map(stripTone);
+  const len      = Math.max(expected.length, userSyls.length);
+  const expPad   = [...expected,  ...Array(len - expected.length).fill("")];
+  const usrPad   = [...userSyls, ...Array(len - userSyls.length).fill("")];
+  let correct    = 0;
+  const tokens   = expPad.map((e, i) => {
+    const u = usrPad[i];
+    const match = !!(e && e === u);
+    if (match) correct++;
+    return { e, u, match };
+  });
+  return { correct, total: expected.length, tokens };
+}
+
+function submitAnswer() {
+  const inputs = [...document.querySelectorAll(".drill-input")];
+  const userInput = inputs.map(i => i.value.trim()).join(" ");
+  inputs.forEach(i => i.value = "");
+
+  const result = scoreAnswer(state.item.phrase.syllables, userInput);
+  state.attempts.push(result);
+  renderResult(result);
+  updateStats();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Render
+// ─────────────────────────────────────────────────────────────────────────────
+function renderDrill() {
+  const item   = state.item;
+  const phrase = item.phrase;
+  const revealed = state.attempts.length > 0;
+
+  // Context
+  const ctx = document.getElementById("context-display");
+  if (revealed) {
+    ctx.innerHTML = esc(item.contextBefore) +
+      `<span class="target-revealed">${esc(phrase.zh + phrase.punct)}</span>` +
+      esc(item.contextAfter);
+  } else {
+    ctx.innerHTML = esc(item.contextBefore) +
+      `<span class="blank">_____</span>${esc(phrase.punct)}` +
+      esc(item.contextAfter);
+  }
+
+  // Hint
+  const hintContent = document.getElementById("hint-content");
+  let hintHtml = `${phrase.syllables.length} syllable(s)`;
+  if (phrase.hasNonChinese) {
+    hintHtml += `<br><span style="color:#f0a040">⚠ contains non-Chinese text — type pinyin for Chinese characters only</span>`;
+    const segHtml = phrase.segments.map(s =>
+      s.type === "literal"
+        ? `<span style="color:#f0a040;font-weight:bold">${esc(s.text)}</span>`
+        : `<span style="color:#7ecf9e">${esc(s.text)}</span>`
+    ).join(" ");
+    hintHtml += `<br>${segHtml}`;
+  }
+  hintContent.innerHTML = hintHtml;
+  document.getElementById("hint-details").removeAttribute("open");
+
+  // Input area
+  const inputArea = document.getElementById("input-area");
+  inputArea.innerHTML = "";
+  const hasLiterals = phrase.segments.some(s => s.type === "literal");
+  if (hasLiterals) {
+    let segIdx = 0;
+    for (const seg of phrase.segments) {
+      if (seg.type === "literal") {
+        const span = document.createElement("span");
+        span.className = "seg-literal";
+        span.textContent = seg.text;
+        inputArea.appendChild(span);
+      } else {
+        const inp = document.createElement("input");
+        inp.type = "text"; inp.className = "pinyin-input seg-input drill-input";
+        inp.placeholder = "…"; inp.autocomplete = "off"; inp.spellcheck = false;
+        inp.dataset.segIdx = segIdx++;
+        inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); submitAnswer(); } });
+        inputArea.appendChild(inp);
+      }
+    }
+  } else {
+    const inp = document.createElement("input");
+    inp.type = "text"; inp.className = "pinyin-input drill-input";
+    inp.placeholder = "type pinyin syllables separated by spaces…";
+    inp.autocomplete = "off"; inp.spellcheck = false;
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); submitAnswer(); } });
+    inputArea.appendChild(inp);
+  }
+  // Focus first input
+  const first = inputArea.querySelector(".drill-input");
+  if (first) setTimeout(() => first.focus(), 50);
+
+  // Clear result
+  document.getElementById("result-box").style.display = "none";
+  document.getElementById("attempt-history").style.display = "none";
+}
+
+function renderResult(result) {
+  const pct = result.total ? Math.round(result.correct / result.total * 100) : 0;
+  const cls = pct === 100 ? "perfect" : pct >= 50 ? "partial" : "wrong";
+
+  const scoreLine = document.getElementById("score-line");
+  scoreLine.className = `score ${cls}`;
+  scoreLine.textContent = `${result.correct}/${result.total} correct (${pct}%)${pct === 100 ? " — Perfect! 🎉" : ""}`;
+
+  const tokenRow = document.getElementById("token-row");
+  tokenRow.innerHTML = result.tokens.map(({ e, u, match }) => {
+    if (match)       return `<span class="token match">${esc(e)}</span>`;
+    if (e && u)      return `<span class="token wrong" title="you: ${esc(u)}">${esc(u)} / ${esc(e)}</span>`;
+    if (e)           return `<span class="token missing">[${esc(e)}]</span>`;
+    return           `<span class="token extra">${esc(u)}?</span>`;
+  }).join("");
+
+  document.getElementById("result-box").style.display = "";
+
+  // Attempt history
+  if (state.attempts.length > 1) {
+    const hist = document.getElementById("attempt-history");
+    hist.style.display = "";
+    hist.textContent = `Attempts: ${state.attempts.length} — ` +
+      state.attempts.map(a => `${a.correct}/${a.total}`).join(", ");
+  }
+
+  // Reveal context
+  const item = state.item;
+  document.getElementById("context-display").innerHTML =
+    esc(item.contextBefore) +
+    `<span class="target-revealed">${esc(item.phrase.zh + item.phrase.punct)}</span>` +
+    esc(item.contextAfter);
+}
+
+function updateStats() {
+  const s = poolStats();
+  document.getElementById("stats-bar").innerHTML =
+    `<span title="phrases remaining in current sentence">📝 ${s.inSentence} in sentence</span>` +
+    `<span title="sentences with phrases remaining">🗂 ${s.sentences} sentences</span>` +
+    `<span title="total remaining">🎯 ${s.total}/${s.grandTotal} total</span>`;
+
+  if (state.item) {
+    const url = `?s=${state.item.recordId}&p=${state.item.phraseIdx}`;
+    document.getElementById("deeplink").innerHTML =
+      `<a href="${url}">🔗 ${url}</a>`;
+  }
+}
+
+function esc(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// YouTube IFrame API
+// ─────────────────────────────────────────────────────────────────────────────
+let ytPlayer = null;
+let loopInterval = null;
+let pendingVideoId = null;
+
+function onYouTubeIframeAPIReady() {
+  if (pendingVideoId) loadYT(pendingVideoId);
+}
+
+function loadYT(videoId) {
+  if (!window.YT || !YT.Player) { pendingVideoId = videoId; return; }
+  if (ytPlayer) {
+    ytPlayer.loadVideoById(videoId);
+    ytPlayer.pauseVideo();
+    stopLoop();
+  } else {
+    ytPlayer = new YT.Player("yt-player", {
+      height: "100%", width: "100%",
+      videoId,
+      playerVars: { autoplay: 0, rel: 0 },
+    });
+  }
+  pendingVideoId = null;
+}
+
+function ytCmd(cmd) { if (ytPlayer) ytPlayer[cmd](); }
+function setSpeed(r) { if (ytPlayer) ytPlayer.setPlaybackRate(r); }
+
+function startLoop() {
+  stopLoop();
+  const start    = parseFloat(document.getElementById("loopStart").value);
+  const duration = parseFloat(document.getElementById("loopDuration").value);
+  const end      = start + duration;
+  if (ytPlayer) { ytPlayer.seekTo(start); ytPlayer.playVideo(); }
+  loopInterval = setInterval(() => {
+    if (ytPlayer && ytPlayer.getCurrentTime() >= end) ytPlayer.seekTo(start);
+  }, 200);
+}
+
+function stopLoop() {
+  if (loopInterval) { clearInterval(loopInterval); loopInterval = null; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Timestamp saving
+// ─────────────────────────────────────────────────────────────────────────────
+async function saveTimestamps() {
+  const item     = state.item;
+  if (!item) return;
+  const start    = parseFloat(document.getElementById("loopStart").value);
+  const duration = parseFloat(document.getElementById("loopDuration").value);
+
+  // Update in-memory
+  item.loopStart    = start;
+  item.loopDuration = duration;
+
+  // Read current phrase_timestamps cell, merge, write back
+  const rowIdx = item.sheetRow + 1; // +1 because sheetRow is 1-based data row, +1 for header
+  const rawRow = sheetRows[item.sheetRow]; // sheetRows[0]=header, sheetRows[1]=first data
+  let tsData = {};
+  try { tsData = rawRow[COL.phrase_timestamps] ? JSON.parse(rawRow[COL.phrase_timestamps]) : {}; } catch(e) {}
+  tsData[String(item.phraseIdx)] = { start, duration };
+  const newVal = JSON.stringify(tsData);
+
+  // Update local cache
+  if (sheetRows[item.sheetRow]) sheetRows[item.sheetRow][COL.phrase_timestamps] = newVal;
+
+  await writeCell(item.sheetRow + 1, COL.phrase_timestamps, newVal);
+
+  const ok = document.getElementById("save-ok");
+  ok.style.display = "";
+  setTimeout(() => ok.style.display = "none", 2000);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UI helpers
+// ─────────────────────────────────────────────────────────────────────────────
+function show(id) {
+  ["auth-screen", "loading", "drill-screen"].forEach(s => {
+    document.getElementById(s).style.display = s === id ? (s === "drill-screen" ? "flex" : "") : "none";
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Boot
+// ─────────────────────────────────────────────────────────────────────────────
+if (handleAuth()) {
+  loadData();
+} else {
+  show("auth-screen");
+}
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
