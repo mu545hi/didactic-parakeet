@@ -282,7 +282,9 @@ const ZH_RUN_RE = /([\u4e00-\u9fff]+|[^\u4e00-\u9fff]+)/gu;
 function isZh(ch) { return ch >= '\u4e00' && ch <= '\u9fff'; }
 
 function isSyllable(tok) {
-  if (!tok || !/[a-zA-Z]/.test(tok[0])) return false;
+  if (!tok) return false;
+  const firstAscii = tok[0].normalize("NFD")[0]; // decompose so ā → a + combining
+  if (!/[a-zA-Z]/.test(firstAscii)) return false;
   if (tok === tok.toUpperCase()) return false; // all-caps = acronym
   return true;
 }
@@ -313,7 +315,6 @@ function splitPhrases(zh, pinyin) {
     }
     phrase.syllables = syllables;
     phrase.segments  = buildSegments(phrase.zh, syllables);
-    if (phrase.punct && ti < pyTokens.length) ti++;
   }
 
   return phrases.filter(p => p.syllables.length > 0);
