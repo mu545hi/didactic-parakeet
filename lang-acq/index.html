@@ -83,6 +83,26 @@
     .stats { font-size: 0.8rem; color: #555; display: flex; gap: 1.5rem; justify-content: center; }
     .deeplink { font-size: 0.75rem; color: #444; text-align: center; }
     .deeplink a { color: #555; text-decoration: none; }
+
+    /* ── Flag dialog ── */
+    #flag-dialog {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); z-index: 100;
+      align-items: center; justify-content: center;
+    }
+    #flag-dialog.open { display: flex; }
+    #flag-dialog > div {
+      background: #1e1e1e; border: 1px solid #444; border-radius: 10px;
+      padding: 1.2rem 1.5rem; display: flex; flex-direction: column;
+      gap: 0.8rem; width: 90%; max-width: 400px;
+    }
+    #flag-dialog h3 { font-size: 1rem; color: #eee; }
+    #flag-note {
+      width: 100%; background: #2a2a2a; color: #eee;
+      border: 1px solid #555; border-radius: 4px;
+      padding: 0.5rem 0.7rem; font-size: 0.95rem; resize: vertical; min-height: 70px;
+    }
+    #flag-dialog .dialog-btns { display: flex; gap: 0.5rem; justify-content: flex-end; }
   </style>
 </head>
 <body>
@@ -160,6 +180,7 @@
     <button onclick="nextSentence()">⏭ Next sentence</button>
     <button onclick="randomDrill()">🎲 Random</button>
     <button onclick="resetSession()">⟳ Reset</button>
+    <button onclick="openFlagDialog()" style="background:#5a3a1a;border-color:#9b6a2a;" title="Flag an issue with this phrase">🚩 Flag</button>
   </div>
 
   <hr>
@@ -168,6 +189,18 @@
   <div class="stats" id="stats-bar"></div>
   <div class="deeplink" id="deeplink"></div>
 
+</div>
+
+<!-- Flag dialog -->
+<div id="flag-dialog">
+  <div>
+    <h3>🚩 Flag phrase issue</h3>
+    <textarea id="flag-note" placeholder="Describe the issue (optional)…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+    <div class="dialog-btns">
+      <button onclick="closeFlagDialog()">Cancel</button>
+      <button class="danger" onclick="submitFlag()">Save flag</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -184,7 +217,7 @@ const COL = {
   id: 0, zh_traditional: 1, zh_simplified: 2, source_script: 3,
   pinyin: 4, en_translation: 5, en_literal: 6,
   ai_audio_clip: 7, original_clip: 8, origin: 9,
-  confidence: 10, notes: 11, phrase_timestamps: 12, tts_text: 13
+  confidence: 10, notes: 11, phrase_timestamps: 12, tts_text: 13, phrase_flags: 14
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -737,6 +770,40 @@ function show(id) {
   ["auth-screen", "loading", "drill-screen"].forEach(s => {
     document.getElementById(s).style.display = s === id ? (s === "drill-screen" ? "flex" : "") : "none";
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Flag dialog
+// ─────────────────────────────────────────────────────────────────────────────
+function openFlagDialog() {
+  document.getElementById("flag-note").value = "";
+  document.getElementById("flag-dialog").classList.add("open");
+  setTimeout(() => document.getElementById("flag-note").focus(), 50);
+}
+
+function closeFlagDialog() {
+  document.getElementById("flag-dialog").classList.remove("open");
+}
+
+async function submitFlag() {
+  const item = state.item;
+  if (!item) return;
+  const note = document.getElementById("flag-note").value.trim();
+  closeFlagDialog();
+
+  const rawRow = sheetRows[item.sheetRow];
+  let flagData = {};
+  try { flagData = rawRow[COL.phrase_flags] ? JSON.parse(rawRow[COL.phrase_flags]) : {}; } catch(e) {}
+  flagData[String(item.phraseIdx)] = { flagged: true, note: note || "" };
+  const newVal = JSON.stringify(flagData);
+
+  if (sheetRows[item.sheetRow]) sheetRows[item.sheetRow][COL.phrase_flags] = newVal;
+  await writeCell(item.sheetRow + 1, COL.phrase_flags, newVal);
+
+  const ok = document.getElementById("save-ok");
+  ok.textContent = "🚩 flagged";
+  ok.style.display = "";
+  setTimeout(() => { ok.style.display = "none"; ok.textContent = "✓ saved"; }, 2000);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
