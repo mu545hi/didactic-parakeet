@@ -111,7 +111,7 @@
 
     /* expanded active pile */
     .pile-row.active .pile-stack {
-      height: 400px;
+      height: 350px;
       border-radius: 16px;
     }
 
@@ -280,6 +280,53 @@
       padding-top: 8px;
     }
 
+    .complete-now-btn {
+      margin-top: auto;
+      padding: 10px 16px;
+      border-radius: 12px;
+      border: none;
+      background: #34c759;
+      color: white;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      align-self: flex-start;
+    }
+    .complete-now-btn:active { opacity: 0.8; }
+
+    /* confirm dialog */
+    #confirm-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    #confirm-overlay.visible { display: flex; }
+    #confirm-box {
+      background: white;
+      border-radius: 16px;
+      padding: 24px 20px 16px;
+      width: 280px;
+      text-align: center;
+    }
+    #confirm-box h3 { font-size: 17px; margin-bottom: 8px; }
+    #confirm-box p  { font-size: 14px; color: #3a3a3c; margin-bottom: 20px; }
+    .confirm-actions { display: flex; gap: 10px; }
+    .confirm-actions button {
+      flex: 1;
+      padding: 12px;
+      border-radius: 12px;
+      border: none;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    #confirm-cancel { background: #e5e5ea; color: #1c1c1e; }
+    #confirm-ok     { background: #34c759; color: white; }
+
     /* swipe animation */
     .card.swiping {
       transition: transform 0.3s ease, opacity 0.3s ease;
@@ -343,6 +390,18 @@
     Tap to flip &nbsp;|&nbsp; Ctrl+Z to undo
   </div>
   <button id="undo-btn" onclick="undo()" style="display:none">↩ Undo</button>
+</div>
+
+<!-- Complete Now confirmation dialog -->
+<div id="confirm-overlay">
+  <div id="confirm-box">
+    <h3>Complete Now?</h3>
+    <p id="confirm-msg">Mark this task as completed today?</p>
+    <div class="confirm-actions">
+      <button id="confirm-cancel" onclick="closeConfirm()">Cancel</button>
+      <button id="confirm-ok" onclick="confirmCompleteNow()">Complete Now</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -637,6 +696,7 @@ function buildCardEl(card, overdue) {
         </div>
         ${card.laundry ? `<div class="detail-row"><div class="detail-label">Laundry</div>Yes</div>` : ""}
         ${card.notes ? `<div class="detail-notes"><div class="detail-label">Notes</div>${card.notes.replace(/\n/g, "<br>")}</div>` : ""}
+        <button class="complete-now-btn" data-card-id="${card.dataIndex}">✓ Complete Now</button>
       </div>
     </div>`;
 
@@ -651,6 +711,11 @@ function attachSwipe(el, card, pileIdx) {
   // double-click / double-tap to shuffle; single click to flip
   let lastTap = 0;
   el.addEventListener("click", e => {
+    if (e.target.classList.contains("complete-now-btn")) {
+      e.stopPropagation();
+      openConfirm(el, card, pileIdx);
+      return;
+    }
     const now = Date.now();
     if (now - lastTap < 300) {
       e.stopPropagation();
@@ -743,6 +808,29 @@ async function doComplete(el, card, pileIdx) {
     showUndo();
     await markComplete(card.dataIndex, newLastDone);
   });
+}
+
+// ── Complete Now dialog ───────────────────────────────────────────────────
+
+let _confirmEl = null, _confirmCard = null, _confirmPileIdx = null;
+
+function openConfirm(el, card, pileIdx) {
+  _confirmEl = el; _confirmCard = card; _confirmPileIdx = pileIdx;
+  document.getElementById("confirm-msg").textContent = `Mark "${card.title}" as completed today?`;
+  document.getElementById("confirm-overlay").classList.add("visible");
+}
+
+function closeConfirm() {
+  document.getElementById("confirm-overlay").classList.remove("visible");
+  _confirmEl = _confirmCard = _confirmPileIdx = null;
+}
+
+async function confirmCompleteNow() {
+  const el = _confirmEl, card = _confirmCard, pileIdx = _confirmPileIdx;
+  closeConfirm();
+  if (!el) return;
+  el.classList.remove("flipped");
+  await doComplete(el, card, pileIdx);
 }
 
 // ── Undo ──────────────────────────────────────────────────────────────────
