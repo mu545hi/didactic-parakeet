@@ -376,7 +376,7 @@ async function loadData() {
       const ts     = storedTs[String(pi)] || {};
       const key    = `${id}:${pi}`;
       const item   = {
-        key, recordId: id, sheetRow: ri + 1, phraseIdx: pi,
+        key, recordId: id, sheetRow: ri, phraseIdx: pi,
         phrase, contextBefore: before, contextAfter: after,
         videoId, enTranslation: enTrans,
         loopStart:    parseFloat(ts.start    ?? 0),
