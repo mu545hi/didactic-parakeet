@@ -374,6 +374,7 @@
   <button class="btn" onclick="connectGoogle()">Connect</button>
   <button class="btn secondary" id="tody-btn" onclick="openTody()" style="display:none">Tody</button>
   <button class="btn" id="langacq-btn" onclick="openLangAcq()" style="display:none;background:#5856d6">LangAcqT</button>
+  <button class="btn" id="reps-btn" onclick="openReps()" style="display:none;background:#ff9f0a">Reps</button>
 </div>
 
 <!-- Tody view -->
@@ -464,12 +465,16 @@ function handleAuth() {
     window.location.hash = "";
     document.getElementById("tody-btn").style.display = "";
     document.getElementById("langacq-btn").style.display = "";
+    document.getElementById("reps-btn").style.display = "";
   }
 }
 
 function openLangAcq() {
-  // Pass the token to the lang-acq app via the hash, same format Google uses
   window.location = `lang-acq/index.html#access_token=${encodeURIComponent(accessToken)}&token_type=Bearer`;
+}
+
+function openReps() {
+  window.location = `reps/index.html#access_token=${encodeURIComponent(accessToken)}&token_type=Bearer`;
 }
 
 // ── Date helpers ──────────────────────────────────────────────────────────
