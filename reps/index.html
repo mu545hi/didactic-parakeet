@@ -518,6 +518,7 @@ async function loadExercises() {
 // Cycle picker
 // ─────────────────────────────────────────────────────────────────────────────
 function showCyclePicker() {
+  teardownPileNavigation();
   show("cycle-screen");
   const el = document.getElementById("cycle-screen");
   el.innerHTML = "";
@@ -604,8 +605,14 @@ function startWorkout(cycleId, cycleLabel, cycleIdx) {
       doneToday: e.history ? e.history.split("\n").some(l => l.startsWith(today)) : false,
     }));
 
-  // put done-today cards at the end so pending ones come first
-  deck.sort((a, b) => (a.doneToday ? 1 : 0) - (b.doneToday ? 1 : 0));
+  // shuffle pending cards, then append done-today at the end
+  const pending = deck.filter(e => !e.doneToday);
+  const done    = deck.filter(e => e.doneToday);
+  for (let i = pending.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pending[i], pending[j]] = [pending[j], pending[i]];
+  }
+  deck = [...pending, ...done];
 
   // start on first pending card, or 0 if all done
   activeIdx = deck.findIndex(e => !e.doneToday);
@@ -620,6 +627,7 @@ function startWorkout(cycleId, cycleLabel, cycleIdx) {
     `${sessionAMPM} · ${new Date().toLocaleDateString()}`;
 
   show("workout-screen");
+  setupPileNavigation();
   renderDeck();
 }
 
@@ -644,7 +652,6 @@ function renderDeck() {
   }
 
   updateProgress();
-  attachPileInteraction(area);
 }
 
 function cycleActive(dir) {
@@ -652,28 +659,45 @@ function cycleActive(dir) {
   renderDeck();
 }
 
-function attachPileInteraction(area) {
+// Called once per workout session — sets up swipe and keyboard navigation.
+function setupPileNavigation() {
   let startX = 0, startY = 0;
 
-  area.addEventListener("touchstart", e => {
+  // Use document-level handlers so they survive renderDeck clearing card-area.
+  // Store refs so we can remove them when leaving the workout screen.
+  window._pileOnTouchStart = e => {
     startX = e.changedTouches[0].clientX;
     startY = e.changedTouches[0].clientY;
-  }, { passive: true });
-
-  area.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
-
-  area.addEventListener("touchend", e => {
+  };
+  window._pileOnTouchMove = e => {
+    // only prevent default if clearly horizontal
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) > Math.abs(dy)) e.preventDefault();
+  };
+  window._pileOnTouchEnd = e => {
     const dx = e.changedTouches[0].clientX - startX;
     const dy = e.changedTouches[0].clientY - startY;
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
       cycleActive(dx < 0 ? 1 : -1);
     }
-  });
-
-  document.onkeydown = e => {
+  };
+  window._pileOnKeyDown = e => {
     if (e.key === "ArrowRight") cycleActive(1);
     if (e.key === "ArrowLeft")  cycleActive(-1);
   };
+
+  document.addEventListener("touchstart", window._pileOnTouchStart, { passive: true });
+  document.addEventListener("touchmove",  window._pileOnTouchMove,  { passive: false });
+  document.addEventListener("touchend",   window._pileOnTouchEnd);
+  document.addEventListener("keydown",    window._pileOnKeyDown);
+}
+
+function teardownPileNavigation() {
+  document.removeEventListener("touchstart", window._pileOnTouchStart);
+  document.removeEventListener("touchmove",  window._pileOnTouchMove);
+  document.removeEventListener("touchend",   window._pileOnTouchEnd);
+  document.removeEventListener("keydown",    window._pileOnKeyDown);
 }
 
 function showSessionComplete() {
