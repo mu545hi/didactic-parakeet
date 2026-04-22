@@ -861,12 +861,16 @@ function buildCircuitControls(ex) {
 // ─────────────────────────────────────────────────────────────────────────────
 function attachCardInteraction(card, ex) {
   let startX = 0, startY = 0, tracking = false, lastTap = 0;
+  let swipeHandled = false; // suppress click after a swipe
 
   function isInteractive(el) {
     return el.closest("button, input, textarea, select") !== null;
   }
 
-  function handleTap() {
+  // Tap / double-tap lives on click so it fires once per gesture on iOS PWA
+  card.addEventListener("click", e => {
+    if (isInteractive(e.target)) return;
+    if (swipeHandled) { swipeHandled = false; return; }
     const now = Date.now();
     if (now - lastTap < 300) {
       lastTap = 0;
@@ -875,13 +879,14 @@ function attachCardInteraction(card, ex) {
       lastTap = now;
       card.classList.toggle("flipped");
     }
-  }
+  });
 
   card.addEventListener("touchstart", e => {
     if (isInteractive(e.target)) { tracking = false; return; }
     startX = e.changedTouches[0].clientX;
     startY = e.changedTouches[0].clientY;
     tracking = true;
+    swipeHandled = false;
   }, { passive: true });
 
   card.addEventListener("touchmove", e => {
@@ -894,16 +899,17 @@ function attachCardInteraction(card, ex) {
     const dx = e.changedTouches[0].clientX - startX;
     const dy = e.changedTouches[0].clientY - startY;
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+      swipeHandled = true; // block the subsequent click
       shuffleToBack();
-    } else if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
-      handleTap();
     }
+    // taps fall through to the click handler
   });
 
   card.addEventListener("mousedown", e => {
     if (isInteractive(e.target)) { tracking = false; return; }
     startX = e.clientX; startY = e.clientY;
     tracking = true;
+    swipeHandled = false;
   });
 
   card.addEventListener("mouseup", e => {
@@ -912,10 +918,10 @@ function attachCardInteraction(card, ex) {
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+      swipeHandled = true;
       shuffleToBack();
-    } else if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
-      handleTap();
     }
+    // taps fall through to the click handler
   });
 }
 
