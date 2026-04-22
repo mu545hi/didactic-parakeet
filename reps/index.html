@@ -35,6 +35,7 @@
     #cycle-screen {
       display: none; flex-direction: column; align-items: center;
       gap: 14px; padding: 40px 20px; width: 100%; max-width: 400px;
+      overflow-y: auto; height: 100%;
     }
     #cycle-screen h2 { font-size: 22px; }
     .cycle-btn {
@@ -112,7 +113,9 @@
       padding: 24px 22px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.5);
     }
-    .card-front.completed { background: #1a3a1a; }
+    .card-front.done-today {
+      background: #1a3a1a;
+    }
 
     .card-name {
       font-size: 26px; font-weight: 700; line-height: 1.3;
@@ -255,14 +258,6 @@
       padding: 4px 10px; font-size: 12px; font-weight: 600;
     }
 
-    /* ── Swipe out ── */
-    .card.swipe-out {
-      transition: transform 0.35s ease, opacity 0.35s ease;
-      transform: translateX(160%) rotate(15deg) !important;
-      opacity: 0;
-      pointer-events: none;
-    }
-
     /* ── Shared btn ── */
     .btn {
       padding: 12px 24px; border-radius: 12px; border: none;
@@ -274,6 +269,21 @@
 
     #loading { color: #8e8e93; font-size: 15px; margin-top: 60px; }
     #done-msg { font-size: 22px; color: #30d158; text-align: center; margin-top: 40px; }
+
+    /* ── Session complete ── */
+    #session-complete {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 16px; padding: 40px 24px; width: 100%; max-width: 420px;
+      text-align: center;
+    }
+    #session-complete h2 { font-size: 28px; }
+    #session-complete p  { color: #8e8e93; font-size: 15px; }
+    #session-note {
+      width: 100%; background: #2c2c2e; color: #f2f2f7;
+      border: 1px solid #48484a; border-radius: 12px;
+      padding: 12px 16px; font-size: 16px; resize: none; min-height: 80px;
+    }
+    #session-note:focus { outline: none; border-color: #0a84ff; }
   </style>
 </head>
 <body>
@@ -344,30 +354,26 @@ const CYCLES = [
   { id: "Rest",             label: "Rest",                sub: "No workout today",                 ampm: null },
 ];
 
-const LS_LAST_CYCLE = "reps_last_cycle_idx"; // kept for manual override only
-
-function setLastCycleIdx(idx) {
-  localStorage.setItem(LS_LAST_CYCLE, idx);
-}
-
-// Derive next cycle index from RepsCycle sheet data.
-// Falls back to localStorage, then 0.
+// Derive next cycle index from RepsCycle sheet data. Falls back to 0.
+// Only advances past a cycle when a COMPLETE row exists for it.
 function nextCycleIdxFromHistory(cycleRows) {
-  // cycleRows: all rows from RepsCycle (including header)
-  // Find the last row that has a CycleType matching our rotation
   if (cycleRows.length > 1) {
-    // walk backwards through data rows
     for (let i = cycleRows.length - 1; i >= 1; i--) {
-      const ct = cycleRows[i][2] || ""; // col C = CycleType
-      const idx = CYCLES.findIndex(c => c.id === ct);
-      if (idx >= 0) {
-        return (idx + 1) % CYCLES.length;
+      const ct    = cycleRows[i][2] || ""; // col C = CycleType
+      const notes = cycleRows[i][3] || ""; // col D = Notes
+      if (notes.trim().toUpperCase().startsWith("COMPLETE")) {
+        const idx = CYCLES.findIndex(c => c.id === ct);
+        if (idx >= 0) return (idx + 1) % CYCLES.length;
       }
     }
+    // no completion found — suggest the cycle of the most recent log entry
+    for (let i = cycleRows.length - 1; i >= 1; i--) {
+      const ct = cycleRows[i][2] || "";
+      const idx = CYCLES.findIndex(c => c.id === ct);
+      if (idx >= 0) return idx; // same cycle, not advanced
+    }
   }
-  // fall back to localStorage
-  const v = localStorage.getItem(LS_LAST_CYCLE);
-  return v !== null ? (parseInt(v) + 1) % CYCLES.length : 0;
+  return 0;
 }
 
 let suggestedCycleIdx = 0; // set during boot
@@ -568,7 +574,6 @@ function makeCycleBtn(c, idx, highlight) {
   if (c.id === "Rest") {
     btn.onclick = () => {
       suggestedCycleIdx = (idx + 1) % CYCLES.length;
-      setLastCycleIdx(idx);
       showCyclePicker();
     };
   } else {
@@ -580,26 +585,35 @@ function makeCycleBtn(c, idx, highlight) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Workout state
 // ─────────────────────────────────────────────────────────────────────────────
-let deck       = [];   // exercise objects for current cycle, shuffled
-let completed  = [];   // completed exercise names
+let deck        = [];  // all exercise objects for current cycle
+let activeIdx   = 0;   // index of the currently focused card
 let sessionAMPM = "PM";
+let sessionCycleId = "";
+
+function todayPrefix() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
 
 function startWorkout(cycleId, cycleLabel, cycleIdx) {
+  const today = todayPrefix();
   deck = exercises
     .filter(e => e.cycleType === cycleId)
-    .map(e => ({ ...e }));
-  // shuffle
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-  completed = [];
-  // use the cycle's canonical AM/PM; fall back to clock
+    .map(e => ({
+      ...e,
+      doneToday: e.history ? e.history.split("\n").some(l => l.startsWith(today)) : false,
+    }));
+
+  // put done-today cards at the end so pending ones come first
+  deck.sort((a, b) => (a.doneToday ? 1 : 0) - (b.doneToday ? 1 : 0));
+
+  // start on first pending card, or 0 if all done
+  activeIdx = deck.findIndex(e => !e.doneToday);
+  if (activeIdx < 0) activeIdx = 0;
+
   const cycleDef = CYCLES[cycleIdx];
   sessionAMPM = cycleDef?.ampm ?? (new Date().getHours() < 13 ? "AM" : "PM");
-  // advance the rotation pointer when this workout is started
-  suggestedCycleIdx = (cycleIdx + 1) % CYCLES.length;
-  setLastCycleIdx(cycleIdx);
+  sessionCycleId = cycleId;
 
   document.getElementById("cycle-title").textContent = cycleLabel;
   document.getElementById("session-label").textContent =
@@ -610,28 +624,84 @@ function startWorkout(cycleId, cycleLabel, cycleIdx) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Card rendering
+// Card rendering — stacked pile
 // ─────────────────────────────────────────────────────────────────────────────
 function renderDeck() {
   const area = document.getElementById("card-area");
   area.innerHTML = "";
 
-  if (deck.length === 0) {
-    area.innerHTML = `<div id="done-msg">All done! 🎉<br><br>
-      <button class="btn" onclick="showCyclePicker()">New Workout</button></div>`;
+  if (deck.every(e => e.doneToday)) {
+    showSessionComplete();
     updateProgress();
     return;
   }
 
-  // render top 3 for stack effect (back to front)
-  const visible = deck.slice(0, 3).reverse();
-  visible.forEach((ex, i) => {
-    const isTop = i === visible.length - 1;
-    const card = buildCard(ex, isTop);
+  // render top 3 visible (back to front)
+  for (let offset = 2; offset >= 0; offset--) {
+    const ex = deck[(activeIdx + offset) % deck.length];
+    const card = buildCard(ex, offset === 0);
     area.appendChild(card);
-  });
+  }
 
   updateProgress();
+  attachPileInteraction(area);
+}
+
+function cycleActive(dir) {
+  activeIdx = (activeIdx + dir + deck.length) % deck.length;
+  renderDeck();
+}
+
+function attachPileInteraction(area) {
+  let startX = 0, startY = 0;
+
+  area.addEventListener("touchstart", e => {
+    startX = e.changedTouches[0].clientX;
+    startY = e.changedTouches[0].clientY;
+  }, { passive: true });
+
+  area.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
+
+  area.addEventListener("touchend", e => {
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
+      cycleActive(dx < 0 ? 1 : -1);
+    }
+  });
+
+  document.onkeydown = e => {
+    if (e.key === "ArrowRight") cycleActive(1);
+    if (e.key === "ArrowLeft")  cycleActive(-1);
+  };
+}
+
+function showSessionComplete() {
+  const area = document.getElementById("card-area");
+
+  const el = document.createElement("div");
+  el.id = "session-complete";
+  el.innerHTML = `
+    <h2>All done! 🎉</h2>
+    <p>Session complete. Add a note for this workout (optional).</p>
+    <textarea id="session-note" placeholder="How did it go?"></textarea>
+    <button class="btn" id="finish-btn">Finish & Log</button>
+    <button class="btn ghost" onclick="showCyclePicker()">Skip</button>
+  `;
+  area.appendChild(el);
+
+  document.getElementById("finish-btn").onclick = async () => {
+    const note = document.getElementById("session-note").value.trim();
+    document.getElementById("finish-btn").disabled = true;
+    document.getElementById("finish-btn").textContent = "Saving…";
+    await appendRow(CYCLE_RANGE, [
+      new Date().toISOString().slice(0, 10),
+      sessionAMPM,
+      sessionCycleId,
+      "COMPLETE" + (note ? ": " + note : ""),
+    ]);
+    showCyclePicker();
+  };
 }
 
 function buildCard(ex, isTop) {
@@ -646,16 +716,13 @@ function buildCard(ex, isTop) {
   inner.appendChild(buildBack(ex));
   card.appendChild(inner);
 
-  if (isTop) {
-    attachCardInteraction(card, ex);
-  }
-
+  if (isTop) attachCardInteraction(card, ex);
   return card;
 }
 
 function buildFront(ex) {
   const face = document.createElement("div");
-  face.className = "card-face card-front";
+  face.className = "card-face card-front" + (ex.doneToday ? " done-today" : "");
 
   const displayName = ex.name.split("\n")[0]; // first line for circuits
   const isCircuit = ex.isCircuit;
@@ -870,13 +937,6 @@ function attachCardInteraction(card, ex) {
   });
 }
 
-function shuffleToBack() {
-  if (deck.length <= 1) return;
-  const top = deck.shift();
-  deck.push(top);
-  renderDeck();
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Submit
 // ─────────────────────────────────────────────────────────────────────────────
@@ -900,14 +960,16 @@ async function submitCard(ex, cardEl) {
   const newLine = stamp + entryBody;
   const newHistory = ex.history ? ex.history + "\n" + newLine : newLine;
 
-  // animate out
-  cardEl.classList.add("swipe-out");
-  cardEl.addEventListener("transitionend", () => {
-    deck.shift();
-    completed.push(ex.name.split("\n")[0]);
-    renderDeck();
-    renderCompleted();
-  }, { once: true });
+  // mark done in deck state
+  deck[activeIdx].doneToday = true;
+  deck[activeIdx].history = newHistory;
+
+  // advance to next pending card
+  const nextPending = deck.findIndex((e, i) => i !== activeIdx && !e.doneToday);
+  if (nextPending >= 0) activeIdx = nextPending;
+
+  // re-render pile (shows updated green card if cycled back to it)
+  renderDeck();
 
   // write to sheet
   const cellRange = `${LOG_RANGE}!D${ex.sheetRow}`;
@@ -924,18 +986,11 @@ async function submitCard(ex, cardEl) {
   ]);
 }
 
-function renderCompleted() {
-  const section = document.getElementById("completed-section");
-  const chips   = document.getElementById("completed-chips");
-  if (completed.length === 0) { section.style.display = "none"; return; }
-  section.style.display = "";
-  chips.innerHTML = completed.map(n => `<div class="completed-chip">${esc(n)}</div>`).join("");
-}
-
 function updateProgress() {
-  const total = deck.length + completed.length;
+  const total = deck.length;
+  const done  = deck.filter(e => e.doneToday).length;
   document.getElementById("progress-label").textContent =
-    total > 0 ? `${completed.length}/${total}` : "";
+    total > 0 ? `${done}/${total}` : "";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
