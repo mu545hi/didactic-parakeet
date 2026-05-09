@@ -194,8 +194,10 @@
     .set-btn:active { opacity: 0.6; }
     .set-val {
       font-size: 26px; font-weight: 700; min-width: 40px; text-align: center;
-      color: #f2f2f7;
+      color: #f2f2f7; cursor: pointer; border-radius: 6px; padding: 2px 4px;
+      transition: color 0.15s ease;
     }
+    .set-val.highlighted { color: #30d158; }
     .del-set-btn {
       background: none; border: none; color: #48484a;
       font-size: 13px; cursor: pointer; padding: 0;
@@ -800,16 +802,16 @@ function buildStrengthControls(ex) {
   container.className = "rows-container";
 
   // seed from last entry or default 3×0
-  let seedRows = [{ note: "", sets: [{ val: 0, fail: false }, { val: 0, fail: false }, { val: 0, fail: false }] }];
+  let seedRows = [{ note: "", sets: [{ val: 0, fail: false, highlighted: false }, { val: 0, fail: false, highlighted: false }, { val: 0, fail: false, highlighted: false }] }];
   if (ex.lastEntry && Array.isArray(ex.lastEntry)) {
     seedRows = ex.lastEntry.map(r => ({
       note: r.note,
-      sets: r.sets.map(s => ({ val: s.val, fail: false })), // reset fail flag
+      sets: r.sets.map(s => ({ val: s.val, fail: false, highlighted: false })), // reset fail flag
     }));
   }
 
   // store mutable state on the container
-  container._rows = seedRows.map(r => ({ note: r.note, sets: [...r.sets] }));
+  container._rows = seedRows.map(r => ({ note: r.note, sets: r.sets.map(s => ({ ...s })) }));
 
   function rerender() {
     container.innerHTML = "";
@@ -852,8 +854,13 @@ function buildStrengthControls(ex) {
         incBtn.onclick = (e) => { e.stopPropagation(); container._rows[ri].sets[si].val++; rerender(); };
 
         const valEl = document.createElement("div");
-        valEl.className = "set-val";
+        valEl.className = "set-val" + (set.highlighted ? " highlighted" : "");
         valEl.textContent = set.val;
+        valEl.onclick = (e) => {
+          e.stopPropagation();
+          container._rows[ri].sets[si].highlighted = !container._rows[ri].sets[si].highlighted;
+          rerender();
+        };
 
         const decBtn = document.createElement("button");
         decBtn.className = "set-btn";
@@ -903,23 +910,29 @@ function buildCircuitControls(ex) {
   // rounds counter
   const roundsEl = document.createElement("div");
   roundsEl.className = "circuit-rounds";
-  roundsEl.innerHTML = `<span id="circuit-rounds-val">0</span>rounds completed`;
+
+  const roundsValEl = document.createElement("span");
+  roundsValEl.textContent = "0";
+
+  const roundsLabel = document.createTextNode("rounds completed");
+  roundsEl.appendChild(roundsValEl);
+  roundsEl.appendChild(roundsLabel);
 
   const roundBtns = document.createElement("div");
   roundBtns.style.cssText = "display:flex;gap:8px;justify-content:center;margin-bottom:4px";
 
   let rounds = 0;
-  function updateRounds() { document.getElementById("circuit-rounds-val").textContent = rounds; }
+  function updateRounds() { roundsValEl.textContent = rounds; }
 
   const decR = document.createElement("button");
   decR.className = "set-btn";
-  decR.style.cssText = "width:40px;height:36px;font-size:18px";
+  decR.style.cssText = "width:56px;height:48px;font-size:22px";
   decR.textContent = "▼";
   decR.onclick = (e) => { e.stopPropagation(); if (rounds > 0) { rounds--; updateRounds(); } };
 
   const incR = document.createElement("button");
   incR.className = "set-btn";
-  incR.style.cssText = "width:40px;height:36px;font-size:18px";
+  incR.style.cssText = "width:56px;height:48px;font-size:22px";
   incR.textContent = "▲";
   incR.onclick = (e) => { e.stopPropagation(); rounds++; updateRounds(); };
 
