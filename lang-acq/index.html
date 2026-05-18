@@ -84,6 +84,18 @@
     .deeplink { font-size: 0.75rem; color: #444; text-align: center; }
     .deeplink a { color: #555; text-decoration: none; }
 
+    /* ── TOCFL filter ── */
+    #tocfl-filter {
+      display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: center;
+      font-size: 0.85rem; color: #888;
+    }
+    #tocfl-filter input[type=number] { width: 44px; text-align: center; padding: 0.25rem 0.4rem; }
+    .tocfl-badge {
+      display: inline-block; font-size: 0.7rem; font-weight: 700;
+      background: #2a3a5a; color: #7ab0f0; border-radius: 4px;
+      padding: 0.1rem 0.4rem; vertical-align: middle; margin-left: 0.3rem;
+    }
+
     /* ── Flag dialog ── */
     #flag-dialog {
       display: none; position: fixed; inset: 0;
@@ -185,6 +197,16 @@
 
   <hr>
 
+  <!-- TOCFL filter -->
+  <div id="tocfl-filter">
+    <span>TOCFL level:</span>
+    <input type="number" id="tocfl-min" value="1" min="1" max="6" step="1">
+    <span>–</span>
+    <input type="number" id="tocfl-max" value="6" min="1" max="6" step="1">
+    <button onclick="applyTocflFilter()" style="font-size:0.8rem;padding:0.25rem 0.7rem;">Apply</button>
+    <span id="tocfl-count" style="color:#555"></span>
+  </div>
+
   <!-- Stats + deeplink -->
   <div class="stats" id="stats-bar"></div>
   <div class="deeplink" id="deeplink"></div>
@@ -217,7 +239,8 @@ const COL = {
   id: 0, zh_traditional: 1, zh_simplified: 2, source_script: 3,
   pinyin: 4, en_translation: 5, en_literal: 6,
   ai_audio_clip: 7, original_clip: 8, origin: 9,
-  confidence: 10, notes: 11, phrase_timestamps: 12, tts_text: 13, phrase_flags: 14
+  confidence: 10, notes: 11, phrase_timestamps: 12, tts_text: 13, phrase_flags: 14,
+  phrase_tocfl: 15
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -359,11 +382,15 @@ async function loadData() {
     const aiClip      = row[COL.ai_audio_clip]  || "";
     const enTrans     = row[COL.en_translation] || "";
     const tsRaw       = row[COL.phrase_timestamps] || "";
+    const tocflRaw    = row[COL.phrase_tocfl]   || "";
 
     if (!zhTrad || !pinyin || !aiClip) continue;
 
     let storedTs = {};
     try { storedTs = tsRaw ? JSON.parse(tsRaw) : {}; } catch(e) {}
+
+    let storedTocfl = {};
+    try { storedTocfl = tocflRaw ? JSON.parse(tocflRaw) : {}; } catch(e) {}
 
     const videoId = extractVideoId(aiClip);
     const phrases = splitPhrases(zhTrad, pinyin);
@@ -374,6 +401,8 @@ async function loadData() {
       const before = phrases.slice(0, pi).map(p => p.zh + p.punct).join("");
       const after  = phrases.slice(pi + 1).map(p => p.zh + p.punct).join("");
       const ts     = storedTs[String(pi)] || {};
+      // tocfl range: stored as [min, max], default [1, 6] meaning unscored
+      const tocfl  = storedTocfl[String(pi)] || [1, 6];
       const key    = `${id}:${pi}`;
       const item   = {
         key, recordId: id, sheetRow: ri, phraseIdx: pi,
@@ -381,6 +410,8 @@ async function loadData() {
         videoId, enTranslation: enTrans,
         loopStart:    parseFloat(ts.start    ?? 0),
         loopDuration: parseFloat(ts.duration ?? 50),
+        tocflMin: tocfl[0] ?? 1,
+        tocflMax: tocfl[1] ?? 5,
       };
       drillPool.push(item);
       poolIndex[key] = item;
@@ -402,17 +433,41 @@ function extractVideoId(url) {
 // ─────────────────────────────────────────────────────────────────────────────
 const LS_POOL = "drill_pool";
 
-function allKeys()          { return drillPool.map(i => i.key); }
-function sentenceKeys(rid)  { return drillPool.filter(i => i.recordId === rid).map(i => i.key); }
+function tocflFilterMin() { return parseInt(document.getElementById("tocfl-min")?.value ?? 1); }
+function tocflFilterMax() { return parseInt(document.getElementById("tocfl-max")?.value ?? 6); }
+
+function itemMatchesTocfl(item) {
+  const fMin = tocflFilterMin(), fMax = tocflFilterMax();
+  // Include only if the phrase's entire range is contained within [fMin, fMax]
+  return item.tocflMin >= fMin && item.tocflMax <= fMax;
+}
+
+function allKeys()          { return drillPool.filter(itemMatchesTocfl).map(i => i.key); }
+function sentenceKeys(rid)  { return drillPool.filter(i => i.recordId === rid && itemMatchesTocfl(i)).map(i => i.key); }
+
+function applyTocflFilter() {
+  const filtered = allKeys();
+  const countEl = document.getElementById("tocfl-count");
+  if (countEl) countEl.textContent = `${filtered.length} phrase${filtered.length !== 1 ? "s" : ""}`;
+  if (!filtered.length) {
+    alert("No phrases match this TOCFL range. Try widening the filter.");
+    return;
+  }
+  savePool(shuffle(filtered));
+  randomDrill();
+}
 
 function initPool() {
   let pool = JSON.parse(localStorage.getItem(LS_POOL) || "null");
-  // Validate — remove keys that no longer exist
-  if (pool) pool = pool.filter(k => poolIndex[k]);
+  // Validate — remove keys that no longer exist or don't match current filter
+  if (pool) pool = pool.filter(k => poolIndex[k] && itemMatchesTocfl(poolIndex[k]));
   if (!pool || pool.length === 0) {
     pool = shuffle(allKeys());
   }
   savePool(pool);
+  // Update count display
+  const countEl = document.getElementById("tocfl-count");
+  if (countEl) countEl.textContent = `${allKeys().length} phrase${allKeys().length !== 1 ? "s" : ""}`;
 }
 
 function getPool()       { return JSON.parse(localStorage.getItem(LS_POOL) || "[]"); }
@@ -671,10 +726,13 @@ function renderResult(result) {
 
 function updateStats() {
   const s = poolStats();
+  const tocflBadge = state.item
+    ? `<span class="tocfl-badge" title="TOCFL range for this phrase">T${state.item.tocflMin}–${state.item.tocflMax}</span>`
+    : "";
   document.getElementById("stats-bar").innerHTML =
     `<span title="phrases remaining in current sentence">📝 ${s.inSentence} in sentence</span>` +
     `<span title="sentences with phrases remaining">🗂 ${s.sentences} sentences</span>` +
-    `<span title="total remaining">🎯 ${s.total}/${s.grandTotal} total</span>`;
+    `<span title="total remaining">🎯 ${s.total}/${s.grandTotal} total${tocflBadge}</span>`;
 
   if (state.item) {
     const url = `?s=${state.item.recordId}&p=${state.item.phraseIdx}`;
