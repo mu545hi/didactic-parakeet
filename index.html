@@ -693,7 +693,7 @@ function buildCardEl(card, overdue) {
         <div class="detail-row"><div class="detail-label">Title</div>${card.title}</div>
         <div class="detail-pair">
           <div class="detail-col"><div class="detail-label">Frequency</div>Every ${card.frequency} ${card.unit}</div>
-          <div class="detail-col"><div class="detail-label">Last Done</div>${card.lastDone || "—"}</div>
+          <div class="detail-col"><div class="detail-label">Last Done</div>${card.lastDone ? card.lastDone.trim().split("\n").slice(-3).join("<br>") : "—"}</div>
         </div>
         <div class="detail-pair">
           ${card.soil  ? `<div class="detail-col"><div class="detail-label">Soil</div>${card.soil}</div>`  : ""}
