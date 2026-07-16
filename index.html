@@ -375,6 +375,7 @@
   <button class="btn secondary" id="tody-btn" onclick="openTody()" style="display:none">Tody</button>
   <button class="btn" id="langacq-btn" onclick="openLangAcq()" style="display:none;background:#5856d6">LangAcqT</button>
   <button class="btn" id="reps-btn" onclick="openReps()" style="display:none;background:#ff9f0a">Reps</button>
+  <button class="btn" id="reps2-btn" onclick="openReps2()" style="display:none;background:#ff6b00">Reps2</button>
 </div>
 
 <!-- Tody view -->
@@ -466,6 +467,7 @@ function handleAuth() {
     document.getElementById("tody-btn").style.display = "";
     document.getElementById("langacq-btn").style.display = "";
     document.getElementById("reps-btn").style.display = "";
+    document.getElementById("reps2-btn").style.display = "";
   }
 }
 
@@ -475,6 +477,10 @@ function openLangAcq() {
 
 function openReps() {
   window.location = `reps/index.html#access_token=${encodeURIComponent(accessToken)}&token_type=Bearer`;
+}
+
+function openReps2() {
+  window.location = `reps2/index.html#access_token=${encodeURIComponent(accessToken)}&token_type=Bearer`;
 }
 
 // ── Date helpers ──────────────────────────────────────────────────────────
