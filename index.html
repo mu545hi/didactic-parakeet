@@ -750,8 +750,7 @@ function attachSwipe(el, card, pileIdx) {
     const dx = e.changedTouches[0].clientX - startX;
     const dy = e.changedTouches[0].clientY - startY;
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
-      if (piles[pileIdx].showHidden) cycleHidden(pileIdx, dx < 0 ? 1 : -1);
-      else dx < 0 ? doDefer(el, card, pileIdx) : doComplete(el, card, pileIdx);
+      cyclePile(pileIdx, dx < 0 ? 1 : -1);
     }
   });
 
@@ -763,8 +762,7 @@ function attachSwipe(el, card, pileIdx) {
     const dx = e.clientX - mouseStartX;
     const dy = e.clientY - mouseStartY;
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
-      if (piles[pileIdx].showHidden) cycleHidden(pileIdx, dx < 0 ? 1 : -1);
-      else dx < 0 ? doDefer(el, card, pileIdx) : doComplete(el, card, pileIdx);
+      cyclePile(pileIdx, dx < 0 ? 1 : -1);
     }
   });
 }
@@ -772,6 +770,15 @@ function attachSwipe(el, card, pileIdx) {
 function cycleHidden(pileIdx, dir) {
   const arr = piles[pileIdx].hidden;
   if (arr.length <= 1) return;
+  if (dir > 0) arr.push(arr.shift());
+  else         arr.unshift(arr.pop());
+  renderPiles();
+}
+
+function cyclePile(pileIdx, dir) {
+  if (piles[pileIdx]?.showHidden) { cycleHidden(pileIdx, dir); return; }
+  const arr = piles[pileIdx]?.cards;
+  if (!arr || arr.length <= 1) return;
   if (dir > 0) arr.push(arr.shift());
   else         arr.unshift(arr.pop());
   renderPiles();
@@ -873,14 +880,8 @@ document.addEventListener("keydown", e => {
   if (e.key === "ArrowDown")  { switchPile(1);  return; }
   if (e.key === " " && currentCard) { e.preventDefault(); currentCard.classList.toggle("flipped"); return; }
   if (e.key === "r") { shufflePile(activePile); return; }
-  if (e.key === "ArrowLeft"  && currentCard) {
-    if (piles[activePile]?.showHidden) cycleHidden(activePile, -1);
-    else { const c = piles[activePile]?.cards[0]; if (c) doDefer(currentCard, c, activePile); }
-  }
-  if (e.key === "ArrowRight" && currentCard) {
-    if (piles[activePile]?.showHidden) cycleHidden(activePile, 1);
-    else { const c = piles[activePile]?.cards[0]; if (c) doComplete(currentCard, c, activePile); }
-  }
+  if (e.key === "ArrowLeft"  && currentCard) { cyclePile(activePile, -1); }
+  if (e.key === "ArrowRight" && currentCard) { cyclePile(activePile, 1);  }
 });
 
 // Page-level up/down swipe to switch piles
