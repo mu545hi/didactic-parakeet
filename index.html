@@ -427,6 +427,7 @@ let currentCard = null;  // active top card DOM element
 const LEVEL = { Low: 0, Medium: 1, High: 2 };
 
 function pileIndex(card) {
+  if (card.admin)   return 5;
   if (card.laundry) return 2;
   const s = LEVEL[card.soil]  ?? 1;
   const n = LEVEL[card.noise] ?? 1;
@@ -436,10 +437,10 @@ function pileIndex(card) {
   return 4;                                  // High noise / high soil
 }
 
-const PILE_LABELS = ["Low\nSoil+Noise", "Med\nSoil+Noise", "Laundry", "Low-Med\nSoil, Hi Noise", "High\nNoise"];
+const PILE_LABELS = ["Low\nSoil+Noise", "Med\nSoil+Noise", "Laundry", "Low-Med\nSoil, Hi Noise", "High\nNoise", "Admin"];
 
 function buildPiles(cards) {
-  const buckets = [[], [], [], [], []];
+  const buckets = [[], [], [], [], [], []];
   cards.forEach(c => buckets[pileIndex(c)].push(c));
   return PILE_LABELS.map((label, i) => {
     const all = buckets[i];
@@ -588,6 +589,7 @@ async function loadTody() {
     soil:      row[5] || "",
     noise:     row[6] || "",
     laundry:   row[7] === "Yes",
+    admin:     row[8] === "Yes",
   }));
 
   piles = buildPiles(allCards);
