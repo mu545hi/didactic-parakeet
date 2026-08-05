@@ -684,8 +684,8 @@ function renderPiles() {
 function buildCardEl(card, overdue) {
   const el = document.createElement("div");
   el.className = "card";
-  if (overdue > 0)       el.classList.add("overdue");
-  else if (overdue <= 0) el.classList.add("due-soon");
+  if (overdue > 0)      el.classList.add("overdue");
+  else if (overdue < 0) el.classList.add("due-soon");
 
   let dueText;
   if (overdue === null)     dueText = "";
