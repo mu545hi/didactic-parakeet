@@ -407,6 +407,10 @@
 </div>
 
 <script>
+function linkify(text) {
+  return text.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" style="color:#0a84ff;word-break:break-all">$1</a>');
+}
+
 const CLIENT_ID = "849477607564-p3jib8rsfvlv2fgsif1avafrjo4qac5k.apps.googleusercontent.com";
 const SHEET_ID  = "1JuWrIRP1aLT-clyunBYi4JXGoApalDRt5SrQRXSYywg";
 const TODY_RANGE = "Tody";
@@ -706,7 +710,7 @@ function buildCardEl(card, overdue) {
           ${card.noise ? `<div class="detail-col"><div class="detail-label">Noise</div>${card.noise}</div>` : ""}
         </div>
         ${card.laundry ? `<div class="detail-row"><div class="detail-label">Laundry</div>Yes</div>` : ""}
-        ${card.notes ? `<div class="detail-notes"><div class="detail-label">Notes</div>${card.notes.replace(/\n/g, "<br>")}</div>` : ""}
+        ${card.notes ? `<div class="detail-notes"><div class="detail-label">Notes</div>${linkify(card.notes).replace(/\n/g, "<br>")}</div>` : ""}
         <button class="complete-now-btn" data-card-id="${card.dataIndex}">✓ Complete Now</button>
       </div>
     </div>`;
