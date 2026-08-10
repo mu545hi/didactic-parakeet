@@ -743,7 +743,7 @@ function attachSwipe(el, card, pileIdx) {
 
   // double-click / double-tap to shuffle; single click to flip
   let lastTap = 0;
-  el.addEventListener("click", e => {
+  el.addEventListener("click", async e => {
     if (e.target.classList.contains("complete-now-btn")) {
       e.stopPropagation();
       openConfirm(el, card, pileIdx);
