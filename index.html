@@ -294,6 +294,19 @@
     }
     .complete-now-btn:active { opacity: 0.8; }
 
+    .undo-completion-btn {
+      padding: 10px 16px;
+      border-radius: 12px;
+      border: none;
+      background: #ff453a;
+      color: white;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      align-self: flex-start;
+    }
+    .undo-completion-btn:active { opacity: 0.8; }
+
     /* confirm dialog */
     #confirm-overlay {
       display: none;
@@ -713,7 +726,10 @@ function buildCardEl(card, overdue) {
         </div>
         ${card.laundry ? `<div class="detail-row"><div class="detail-label">Laundry</div>Yes</div>` : ""}
         ${card.notes ? `<div class="detail-notes"><div class="detail-label">Notes</div>${linkify(card.notes).replace(/\n/g, "<br>")}</div>` : ""}
-        <button class="complete-now-btn" data-card-id="${card.dataIndex}">✓ Complete Now</button>
+        <div style="display:flex;gap:8px;margin-top:auto;flex-wrap:wrap">
+          <button class="complete-now-btn" data-card-id="${card.dataIndex}">✓ Complete Now</button>
+          ${card.lastDone ? `<button class="undo-completion-btn" data-card-id="${card.dataIndex}">↩ Undo Last</button>` : ""}
+        </div>
       </div>
     </div>`;
 
@@ -731,6 +747,11 @@ function attachSwipe(el, card, pileIdx) {
     if (e.target.classList.contains("complete-now-btn")) {
       e.stopPropagation();
       openConfirm(el, card, pileIdx);
+      return;
+    }
+    if (e.target.classList.contains("undo-completion-btn")) {
+      e.stopPropagation();
+      await undoLastCompletion(card);
       return;
     }
     const now = Date.now();
@@ -832,6 +853,18 @@ async function doComplete(el, card, pileIdx) {
     showUndo();
     await markComplete(card.dataIndex, newLastDone);
   });
+}
+
+async function undoLastCompletion(card) {
+  const lines = card.lastDone ? card.lastDone.trim().split("\n").map(l => l.trim()).filter(Boolean) : [];
+  if (lines.length === 0) return;
+  lines.pop();
+  const newLastDone = lines.join("\n");
+  card.lastDone = newLastDone;
+  await markComplete(card.dataIndex, newLastDone);
+  // Rebuild piles from updated allCards and re-render
+  piles = buildPiles(allCards);
+  renderPiles();
 }
 
 // ── Complete Now dialog ───────────────────────────────────────────────────
