@@ -644,6 +644,34 @@ function buildBack(ex) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Draft persistence (localStorage)
+// Key: "reps2_draft_{sheetRow}_{levelLabel}"
+// Cleared on successful save.
+// ─────────────────────────────────────────────────────────────────────────────
+function draftKey(ex, level) {
+  return `reps2_draft_${ex.sheetRow}_${level.label}`;
+}
+
+function saveDraft(ex, level, rows) {
+  try {
+    localStorage.setItem(draftKey(ex, level), JSON.stringify(rows));
+  } catch (e) { /* storage full or private mode — fail silently */ }
+}
+
+function loadDraft(ex, level) {
+  try {
+    const raw = localStorage.getItem(draftKey(ex, level));
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
+function clearDraft(ex, level) {
+  try {
+    localStorage.removeItem(draftKey(ex, level));
+  } catch (e) {}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Progression controls
 // Builds a scrollable list of level blocks (L1–L5), each with set controls.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -656,20 +684,24 @@ function buildProgressionControls(ex) {
     block.className = "level-block";
     block._level = level;
 
-    // Seed from last entry or 3 empty sets
-    const seed = (level.lastEntry && Array.isArray(level.lastEntry))
-      ? level.lastEntry.map(r => ({
-          note: r.note,
-          sets: r.sets.map(s => ({ val: s.val, fail: false, highlighted: false })),
-        }))
-      : [{ note: "", sets: [
-          { val: 0, fail: false, highlighted: false },
-          { val: 0, fail: false, highlighted: false },
-          { val: 0, fail: false, highlighted: false },
-        ]}];
+    // Seed priority: localStorage draft → last sheet entry → 3 empty sets
+    const draft = loadDraft(ex, level);
+    const seed = draft
+      ? draft
+      : (level.lastEntry && Array.isArray(level.lastEntry))
+        ? level.lastEntry.map(r => ({
+            note: r.note,
+            sets: r.sets.map(s => ({ val: s.val, fail: false, highlighted: false })),
+          }))
+        : [{ note: "", sets: [
+            { val: 0, fail: false, highlighted: false },
+            { val: 0, fail: false, highlighted: false },
+            { val: 0, fail: false, highlighted: false },
+          ]}];
     block._rows = seed;
 
     function rerender() {
+      saveDraft(ex, level, block._rows);
       block.innerHTML = "";
 
       // Level header
@@ -706,7 +738,10 @@ function buildProgressionControls(ex) {
         noteInput.className = "note-input";
         noteInput.placeholder = "weight / note";
         noteInput.value = row.note;
-        noteInput.addEventListener("input", e => { block._rows[ri].note = e.target.value; });
+        noteInput.addEventListener("input", e => {
+          block._rows[ri].note = e.target.value;
+          saveDraft(ex, level, block._rows);
+        });
         rowTop.appendChild(noteInput);
 
         if (block._rows.length > 1) {
@@ -817,6 +852,9 @@ async function submitCard(ex, cardEl, btn) {
     // Update local state
     level.history = newHistory;
     level.lastEntry = parseLastEntry(newHistory);
+
+    // Clear the draft now that it's committed to the sheet
+    clearDraft(ex, level);
 
     writes.push(putCell(`${LOG_RANGE}!${level.colLetter}${ex.sheetRow}`, newCell));
   });
