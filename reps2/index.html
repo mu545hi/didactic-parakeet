@@ -745,6 +745,17 @@ function buildProgressionControls(ex) {
         rowTop.appendChild(noteInput);
 
         if (block._rows.length > 1) {
+          if (ri > 0) {
+            const upRow = document.createElement("button");
+            upRow.className = "del-row-btn";
+            upRow.textContent = "↑";
+            upRow.onclick = (e) => {
+              e.stopPropagation();
+              [block._rows[ri - 1], block._rows[ri]] = [block._rows[ri], block._rows[ri - 1]];
+              rerender();
+            };
+            rowTop.appendChild(upRow);
+          }
           const delRow = document.createElement("button");
           delRow.className = "del-row-btn";
           delRow.textContent = "×";
